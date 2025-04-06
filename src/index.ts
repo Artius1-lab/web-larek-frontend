@@ -12,7 +12,6 @@ import { CheckoutSuccess } from './components/View/CheckoutSuccess';
 import { Modal } from './components/View/Modal';
 import { ProductCard } from './components/View/ProductCard';
 import { ProductModal } from './components/View/ProductModal';
-import { ensureElement } from './utils/utils';
 import './scss/styles.scss';
 import {
 	AddToCartEvent,
@@ -23,14 +22,20 @@ import {
 	ProductPreviewEvent,
 	RemoveFromCartEvent,
 } from './types/events';
+import { CartButton } from './components/View/CartButton';
+import { CartCounter } from './components/View/CartCounter';
+import { Gallery } from './components/View/Gallery';
 
 /**
  * Получаем все шаблоны
  */
+const galleryTemplateId = 'gallery';
 const productCardTemplateId = 'card-catalog';
 const modalTemplateId = 'modal';
 const productModalTemplateId = 'card-preview';
 const cartTemplateId = 'basket';
+const cartButtonTemplateId = 'card-button';
+const cartCounterTemplateId = 'card-counter';
 const cartItemTemplateId = 'card-basket';
 const checkoutOrderTemplateId = 'order';
 const checkoutContactsTemplateId = 'contacts';
@@ -60,7 +65,10 @@ new ChekoutModel(orderApi, events);
 const modal = new Modal(modalTemplateId, events);
 document.body.appendChild(modal.getElement());
 
+const gallery = new Gallery(galleryTemplateId, events);
 const cart = new Cart(cartTemplateId, events);
+const cartCounter = new CartCounter(cartCounterTemplateId, events);
+const cartButton = new CartButton(cartButtonTemplateId, events);
 const checkoutOrder = new CheckoutOrder(checkoutOrderTemplateId, events);
 const checkoutContacts = new CheckoutContacts(
 	checkoutContactsTemplateId,
@@ -69,15 +77,21 @@ const checkoutContacts = new CheckoutContacts(
 const checkoutSuccess = new CheckoutSuccess(checkoutSuccessTemplateId, events);
 const modalProductCart = new ProductModal(productModalTemplateId, events);
 
-const gallery = ensureElement<HTMLElement>('.gallery');
+/**
+ * Заменяем текущие элементы на наши
+ */
+document
+	.querySelector('.header__basket')
+	.replaceWith(cartButton.render({ child: cartCounter.render() }));
+document
+	.querySelector('.gallery')
+	.replaceWith(gallery.render({ productCards: [] }));
 
 /**
  * Добавление карточек товара после получения
  */
 events.on<ProductFetchedEvent>(EventsNames.PRODUCTS_FETCHED, ({ products }) => {
-	// Предварительно очищаем галерею
-	gallery.innerHTML = '';
-
+	const productsEl: HTMLElement[] = [];
 	products.map((p) => {
 		const card = new ProductCard(productCardTemplateId, events, {
 			onClick: () =>
@@ -85,8 +99,11 @@ events.on<ProductFetchedEvent>(EventsNames.PRODUCTS_FETCHED, ({ products }) => {
 					product: p,
 				}),
 		});
-		gallery.append(card.render(p));
+
+		productsEl.push(card.render(p));
 	});
+
+	gallery.render({ productCards: productsEl });
 });
 
 /**

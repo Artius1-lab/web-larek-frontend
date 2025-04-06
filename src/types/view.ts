@@ -19,6 +19,13 @@ export interface IModalView {
 }
 
 /**
+ * Интерфейс галлереи
+ */
+export interface IGalleryView {
+	render: (data: { productCards: HTMLElement[] }) => HTMLElement;
+}
+
+/**
  * Интерфейс карточки товара
  */
 export interface IProductCardView {
@@ -44,6 +51,20 @@ export interface ICartView {
 }
 
 /**
+ * Интерфейс Счётчика товаров
+ */
+export interface ICartCounterView {
+	render: () => HTMLElement;
+}
+
+/**
+ * Интерфейс кнопки коризны
+ */
+export interface ICartButtonView {
+	render: (data: { child: HTMLElement }) => HTMLElement;
+}
+
+/**
  * Интерфейс карт айтема
  */
 export interface ICartItemLineView {
@@ -55,7 +76,6 @@ export interface ICartItemLineView {
  */
 export interface ICheckoutOrderView {
 	render: () => void;
-	validate: () => void;
 }
 
 /**
@@ -63,7 +83,6 @@ export interface ICheckoutOrderView {
  */
 export interface ICheckoutContactsView {
 	render: () => void;
-	validate: () => void;
 }
 
 /**

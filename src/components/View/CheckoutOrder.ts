@@ -1,5 +1,9 @@
 import { ICheckoutOrderView } from '../../types/view';
-import { CheckoutOrderFormSumitEvent, EventsNames } from '../../types/events';
+import {
+	CheckoutFormChangeEvent,
+	CheckoutOrderFormChangedEvent,
+	EventsNames,
+} from '../../types/events';
 import { IEvents } from '../base/events';
 import { BaseView } from '../base/view';
 
@@ -8,16 +12,6 @@ export class CheckoutOrder extends BaseView implements ICheckoutOrderView {
 	private submitBtnEl: HTMLButtonElement;
 	private addressEl: HTMLInputElement;
 	private formErrorsEl: HTMLElement;
-
-	/**
-	 * Способ оплаты
-	 */
-	private paymentType: string | null = null;
-
-	/**
-	 * Адресс доставки
-	 */
-	private adress: string | null = null;
 
 	constructor(template: string, events: IEvents) {
 		super(template, events);
@@ -36,26 +30,6 @@ export class CheckoutOrder extends BaseView implements ICheckoutOrderView {
 	}
 
 	/**
-	 * Валидация формы и паралельное разблокирование кнопки
-	 */
-	public validate() {
-		let valid = true;
-
-		const errors = [];
-
-		if (!this.adress || this.adress.length < 5) {
-			valid = false;
-			errors.push('Введён некорректный адрес');
-		}
-
-		const errorMsg = errors.join('<br/>');
-
-		this.formErrorsEl.innerHTML = errorMsg;
-
-		this.submitBtnEl.disabled = !valid;
-	}
-
-	/**
 	 * Добавляем обработчики событий
 	 */
 	private addEventListeners() {
@@ -67,6 +41,11 @@ export class CheckoutOrder extends BaseView implements ICheckoutOrderView {
 
 		this.addressEl.addEventListener('change', this.addressChange.bind(this));
 		this.addressEl.addEventListener('keyup', this.addressChange.bind(this));
+
+		this.events.on<CheckoutOrderFormChangedEvent>(
+			EventsNames.CHECKOUT_ORDER_UPDATED,
+			this.updateChanges.bind(this)
+		);
 	}
 
 	/**
@@ -75,28 +54,7 @@ export class CheckoutOrder extends BaseView implements ICheckoutOrderView {
 	private submitForm(e: Event) {
 		e.preventDefault();
 
-		this.events.emit<CheckoutOrderFormSumitEvent>(
-			EventsNames.CHECKOUT_ORDER_SUBMIT,
-			{
-				formData: {
-					adress: this.adress,
-					paymentType: this.paymentType,
-				},
-			}
-		);
-
-		// Обнуляем все данные
-
-		this.adress = null;
-		this.paymentType = null;
-
-		this.paymentBtnEls.forEach((btn) => {
-			btn.classList.remove('button_alt-active');
-		});
-
-		this.addressEl.value = '';
-
-		this.formErrorsEl.innerHTML = '';
+		this.events.emit(EventsNames.CHECKOUT_ORDER_SUBMIT);
 	}
 
 	/**
@@ -104,13 +62,14 @@ export class CheckoutOrder extends BaseView implements ICheckoutOrderView {
 	 */
 	private clickPaymentType(e: Event) {
 		const clickedBtn = e.currentTarget as HTMLButtonElement;
-		this.paymentType = clickedBtn.name;
 
-		this.paymentBtnEls.forEach((btn) => {
-			btn.classList.toggle('button_alt-active', btn.name === this.paymentType);
-		});
-
-		this.validate();
+		this.events.emit<CheckoutFormChangeEvent>(
+			EventsNames.CHECKOUT_ORDER_CHANGE,
+			{
+				name: 'paymentType',
+				value: clickedBtn.name,
+			}
+		);
 	}
 
 	/**
@@ -119,8 +78,36 @@ export class CheckoutOrder extends BaseView implements ICheckoutOrderView {
 	private addressChange(e: Event) {
 		const input = e.currentTarget as HTMLInputElement;
 
-		this.adress = input.value;
+		this.events.emit<CheckoutFormChangeEvent>(
+			EventsNames.CHECKOUT_ORDER_CHANGE,
+			{
+				name: 'address',
+				value: input.value,
+			}
+		);
+	}
 
-		this.validate();
+	/**
+	 * Отрисовка обновлений
+	 */
+	private updateChanges(data: CheckoutOrderFormChangedEvent) {
+		const paymentType = data.paymentType ? data.paymentType : '';
+		const address = data.address ? data.address : '';
+		const errors = data.errors ? data.errors : '';
+		const valid = data.valid ? data.valid : false;
+
+		this.paymentBtnEls.forEach((btn) => {
+			btn.classList.remove('button_alt-active');
+
+			this.paymentBtnEls.forEach((btn) => {
+				btn.classList.toggle('button_alt-active', btn.name === paymentType);
+			});
+		});
+
+		this.addressEl.value = address;
+
+		this.formErrorsEl.innerHTML = errors;
+
+		this.submitBtnEl.disabled = !valid;
 	}
 }

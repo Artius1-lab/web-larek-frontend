@@ -1,7 +1,8 @@
 import { ICartView } from '../../types/view';
-import { ChangeCartEvent, EventsNames } from '../../types/events';
+import { EventsNames } from '../../types/events';
 import { IEvents } from '../base/events';
 import { BaseView } from '../base/view';
+import { getFormatedPrice } from '../../utils/utils';
 
 /**
  * Внешний вид корзины
@@ -10,8 +11,6 @@ export class Cart extends BaseView implements ICartView {
 	private cartItemsListEl: HTMLElement;
 	private checkoutButtonEL: HTMLButtonElement;
 	private totalEl: HTMLElement;
-	private headerCartButtonEl: HTMLButtonElement;
-	private headerCartCounterEl: HTMLElement;
 
 	constructor(templateId: string, events: IEvents) {
 		super(templateId, events);
@@ -19,10 +18,6 @@ export class Cart extends BaseView implements ICartView {
 		this.cartItemsListEl = this.rootElement.querySelector('.basket__list');
 		this.checkoutButtonEL = this.rootElement.querySelector('.basket__button');
 		this.totalEl = this.rootElement.querySelector('.basket__price');
-		this.headerCartButtonEl = document.querySelector('.header__basket');
-		this.headerCartCounterEl = document.querySelector(
-			'.header__basket-counter'
-		);
 
 		this.addEventListeners();
 	}
@@ -44,7 +39,7 @@ export class Cart extends BaseView implements ICartView {
 			return this.rootElement;
 		}
 
-		this.totalEl.textContent = `${total}`;
+		this.totalEl.textContent = `${getFormatedPrice(total)}`;
 
 		this.checkoutButtonEL.classList.remove('hidden');
 
@@ -56,27 +51,9 @@ export class Cart extends BaseView implements ICartView {
 	}
 
 	/**
-	 * Перерендривает количество товаров в корзине
-	 */
-	private rerenderCartItemsCount(qty: number) {
-		this.headerCartCounterEl.textContent = String(qty);
-	}
-
-	/**
 	 * Добавляем обработчики событй
 	 */
 	private addEventListeners() {
-		this.events.on<ChangeCartEvent>(
-			EventsNames.CART_CHANGED,
-			({ cartItems }) => {
-				this.rerenderCartItemsCount(cartItems.length);
-			}
-		);
-
-		this.headerCartButtonEl.addEventListener('click', () => {
-			this.events.emit(EventsNames.VIEW_CART);
-		});
-
 		this.checkoutButtonEL.addEventListener('click', () => {
 			this.events.emit(EventsNames.CHECKOUT_START);
 		});

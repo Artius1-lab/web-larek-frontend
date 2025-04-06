@@ -67,6 +67,16 @@ export enum EventsNames {
 	CHECKOUT_STARTED = 'checkout:started',
 
 	/**
+	 * Измненение данных в форме
+	 */
+	CHECKOUT_ORDER_CHANGE = 'checkout:order:change',
+
+	/**
+	 * Измненение данных в форме
+	 */
+	CHECKOUT_ORDER_UPDATED = 'checkout:order:updated',
+
+	/**
 	 * Подтверждение формы заказа на view
 	 */
 	CHECKOUT_ORDER_SUBMIT = 'checkout:order:submit',
@@ -75,6 +85,11 @@ export enum EventsNames {
 	 * Форма заказа подтвердилась на model
 	 */
 	CHECKOUT_ORDER_SUBMITED = 'checkout:order:submited',
+
+	/**
+	 * Подтверждение формы контактов на view
+	 */
+	CHECKOUT_CONTACTS_UPDATED = 'checkout:contacts:updated',
 
 	/**
 	 * Подтверждение формы контактов на view
@@ -120,12 +135,23 @@ export interface CheckoutStartedEvent {
 	cartItems: CartItem[];
 }
 
-export interface CheckoutOrderFormSumitEvent {
-	formData: CheckoutOrderFormData;
+export interface CheckoutFormChangeEvent {
+	name: string;
+	value: string | null;
 }
 
-export interface CheckoutContactFormSumitEvent {
-	formData: CheckoutContactFormData;
+export interface CheckoutOrderFormChangedEvent {
+	paymentType: string | null;
+	address: string | null;
+	valid: boolean;
+	errors: string | null;
+}
+
+export interface CheckoutContactFormChangedEvent {
+	email: string | null;
+	phone: string | null;
+	valid: boolean;
+	errors: string | null;
 }
 
 export interface CheckoutSuccessEvent {

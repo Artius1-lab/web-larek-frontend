@@ -2,8 +2,9 @@ import { IOrderApi } from '../../types/api';
 import { CartItem, ICheckout } from '../../types/models';
 import { isApiError } from '../../utils/api';
 import {
-	CheckoutContactFormSumitEvent,
-	CheckoutOrderFormSumitEvent,
+	CheckoutContactFormChangedEvent,
+	CheckoutFormChangeEvent,
+	CheckoutOrderFormChangedEvent,
 	CheckoutStartedEvent,
 	CheckoutSuccessEvent,
 	EventsNames,
@@ -91,14 +92,19 @@ export class ChekoutModel extends BaseModel implements ICheckout {
 			this.startCheckout.bind(this)
 		);
 
-		this.events.on<CheckoutOrderFormSumitEvent>(
+		this.events.on(
 			EventsNames.CHECKOUT_ORDER_SUBMIT,
 			this.saveOrderForm.bind(this)
 		);
 
-		this.events.on<CheckoutContactFormSumitEvent>(
+		this.events.on(
 			EventsNames.CHECKOUT_CONTACTS_SUBMIT,
 			this.saveContactForm.bind(this)
+		);
+
+		this.events.on<CheckoutFormChangeEvent>(
+			EventsNames.CHECKOUT_ORDER_CHANGE,
+			this.inputChange.bind(this)
 		);
 	}
 
@@ -110,16 +116,109 @@ export class ChekoutModel extends BaseModel implements ICheckout {
 	}
 
 	/**
+	 * Сохранение изменений по инпутам
+	 */
+	private inputChange({ name, value }: CheckoutFormChangeEvent) {
+		switch (name) {
+			case 'paymentType':
+				this.paymentType = value;
+				this.validateOrderForm();
+				break;
+
+			case 'address':
+				this.address = value;
+				this.validateOrderForm();
+				break;
+
+			case 'phone':
+				this.phone = value;
+				this.validateContactForm();
+				break;
+
+			case 'email':
+				this.email = value;
+				this.validateContactForm();
+				break;
+
+			default:
+				break;
+		}
+	}
+
+	/**
+	 * Валидация формы заказа
+	 */
+	private validateOrderForm() {
+		let valid = true;
+
+		const errors = [];
+
+		if (!this.address || this.address.length < 5) {
+			valid = false;
+			errors.push('Введён некорректный адрес');
+		}
+
+		if (!this.paymentType) {
+			valid = false;
+			errors.push('Не выбран тип оплаты');
+		}
+
+		const errorMsg = errors.join('<br/>');
+
+		this.events.emit<CheckoutOrderFormChangedEvent>(
+			EventsNames.CHECKOUT_ORDER_UPDATED,
+			{
+				paymentType: this.paymentType,
+				address: this.address,
+				valid,
+				errors: errorMsg,
+			}
+		);
+
+		return valid;
+	}
+
+	/**
+	 * Валидация формы контакта
+	 */
+	private validateContactForm() {
+		let valid = true;
+
+		const errors = [];
+
+		if (!this.email || !this.isValidEmail(this.email)) {
+			valid = false;
+			errors.push('Введён некорректный email');
+		}
+
+		if (!this.phone || !this.isValidPhone(this.phone)) {
+			valid = false;
+			errors.push('Введён некорректный номер телефона');
+		}
+
+		const errorMsg = errors.join('<br/>');
+
+		this.events.emit<CheckoutContactFormChangedEvent>(
+			EventsNames.CHECKOUT_CONTACTS_UPDATED,
+			{
+				phone: null,
+				email: this.email,
+				valid,
+				errors: errorMsg,
+			}
+		);
+
+		return valid;
+	}
+
+	/**
 	 * Проверяем и сохраняем данные из OrderForm
 	 */
-	private saveOrderForm({ formData }: CheckoutOrderFormSumitEvent) {
-		if (!formData.adress || !formData.paymentType) {
+	private saveOrderForm() {
+		if (!this.validateOrderForm()) {
 			console.error('Некоторые данные не пришли в CheckoutModel');
 			return;
 		}
-
-		this.address = formData.adress;
-		this.paymentType = formData.paymentType;
 
 		this.events.emit(EventsNames.CHECKOUT_ORDER_SUBMITED);
 	}
@@ -127,14 +226,11 @@ export class ChekoutModel extends BaseModel implements ICheckout {
 	/**
 	 * Проверяем и сохраняем данные из ContactForm
 	 */
-	private saveContactForm({ formData }: CheckoutContactFormSumitEvent) {
-		if (!formData.phone || !formData.email) {
+	private saveContactForm() {
+		if (!this.validateContactForm()) {
 			console.error('Некоторые данные не пришли в CheckoutModel');
 			return;
 		}
-
-		this.phone = formData.phone;
-		this.email = formData.email;
 
 		this.createOrder();
 	}
@@ -148,5 +244,39 @@ export class ChekoutModel extends BaseModel implements ICheckout {
 		this.email = null;
 		this.phone = null;
 		this.paymentType = null;
+
+		this.events.emit<CheckoutOrderFormChangedEvent>(
+			EventsNames.CHECKOUT_ORDER_UPDATED,
+			{
+				paymentType: this.paymentType,
+				address: this.address,
+				valid: false,
+				errors: '',
+			}
+		);
+
+		this.events.emit<CheckoutContactFormChangedEvent>(
+			EventsNames.CHECKOUT_CONTACTS_UPDATED,
+			{
+				phone: '',
+				email: this.email,
+				valid: false,
+				errors: '',
+			}
+		);
+	}
+
+	/**
+	 * Валидация номера телефона
+	 */
+	private isValidPhone(phone: string): boolean {
+		return /^(\+7|8)[0-9]{10}$/.test(phone.replace(/[-\s()]/g, ''));
+	}
+
+	/**
+	 * Валидация email
+	 */
+	private isValidEmail(email: string): boolean {
+		return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 	}
 }

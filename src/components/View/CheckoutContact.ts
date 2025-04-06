@@ -1,5 +1,9 @@
 import { ICheckoutContactsView } from '../../types/view';
-import { CheckoutContactFormSumitEvent, EventsNames } from '../../types/events';
+import {
+	CheckoutContactFormChangedEvent,
+	CheckoutFormChangeEvent,
+	EventsNames,
+} from '../../types/events';
 import { IEvents } from '../base/events';
 import { BaseView } from '../base/view';
 import Inputmask from 'inputmask';
@@ -13,16 +17,6 @@ export class CheckoutContacts
 	private submitBtnEl: HTMLButtonElement;
 	private formErrorsEl: HTMLElement;
 
-	/**
-	 * Введённая почта
-	 */
-	private email: string | null;
-
-	/**
-	 * Введённый телефон
-	 */
-	private phone: string | null;
-
 	constructor(template: string, events: IEvents) {
 		super(template, events);
 		this.emailInputEl = this.rootElement.querySelector('[name="email"]');
@@ -33,37 +27,11 @@ export class CheckoutContacts
 		// Устанавливаем маску
 		const im = new Inputmask('+7 (999) 999-99-99');
 		im.mask(this.phoneInputEl);
+		this.addEventListeners();
 	}
 
 	render() {
-		this.addEventListeners();
-
 		return this.rootElement;
-	}
-
-	/**
-	 * Валидация формы и паралельное разблокирование кнопки
-	 */
-	public validate() {
-		let valid = true;
-
-		const errors = [];
-
-		if (!this.email || !this.isValidEmail(this.email)) {
-			valid = false;
-			errors.push('Введён некорректный email');
-		}
-
-		if (!this.phone || !this.isValidPhone(this.phone)) {
-			valid = false;
-			errors.push('Введён некорректный номер телефона');
-		}
-
-		const errorMsg = errors.join('<br/>');
-
-		this.formErrorsEl.innerHTML = errorMsg;
-
-		this.submitBtnEl.disabled = !valid;
 	}
 
 	/**
@@ -77,6 +45,11 @@ export class CheckoutContacts
 
 		this.phoneInputEl.addEventListener('change', this.phoneChange.bind(this));
 		this.phoneInputEl.addEventListener('keyup', this.phoneChange.bind(this));
+
+		this.events.on<CheckoutContactFormChangedEvent>(
+			EventsNames.CHECKOUT_CONTACTS_UPDATED,
+			this.updateChanges.bind(this)
+		);
 	}
 
 	/**
@@ -85,24 +58,7 @@ export class CheckoutContacts
 	private submitForm(e: Event) {
 		e.preventDefault();
 
-		this.events.emit<CheckoutContactFormSumitEvent>(
-			EventsNames.CHECKOUT_CONTACTS_SUBMIT,
-			{
-				formData: {
-					phone: this.phone,
-					email: this.email,
-				},
-			}
-		);
-
-		// Обнуляем все данные
-		this.email = null;
-		this.phone = null;
-
-		this.emailInputEl.value = '';
-		this.phoneInputEl.value = '';
-
-		this.formErrorsEl.innerHTML = '';
+		this.events.emit(EventsNames.CHECKOUT_CONTACTS_SUBMIT);
 	}
 
 	/**
@@ -110,8 +66,14 @@ export class CheckoutContacts
 	 */
 	private emailChange(e: Event) {
 		const input = e.currentTarget as HTMLInputElement;
-		this.email = input.value;
-		this.validate();
+
+		this.events.emit<CheckoutFormChangeEvent>(
+			EventsNames.CHECKOUT_ORDER_CHANGE,
+			{
+				name: 'email',
+				value: input.value,
+			}
+		);
 	}
 
 	/**
@@ -119,21 +81,34 @@ export class CheckoutContacts
 	 */
 	private phoneChange(e: Event) {
 		const input = e.currentTarget as HTMLInputElement;
-		this.phone = input.value;
-		this.validate();
+
+		this.events.emit<CheckoutFormChangeEvent>(
+			EventsNames.CHECKOUT_ORDER_CHANGE,
+			{
+				name: 'phone',
+				value: input.value,
+			}
+		);
 	}
 
 	/**
-	 * Валидация номера телефона
+	 * Отрисовка обновлений
 	 */
-	private isValidPhone(phone: string): boolean {
-		return /^(\+7|8)[0-9]{10}$/.test(phone.replace(/[-\s()]/g, ''));
-	}
+	private updateChanges(data: CheckoutContactFormChangedEvent) {
+		const phone = data.phone === undefined ? '' : data.phone;
+		const email = data.email ? data.email : '';
+		const errors = data.errors ? data.errors : '';
+		const valid = data.valid ? data.valid : false;
 
-	/**
-	 * Валидация email
-	 */
-	private isValidEmail(email: string): boolean {
-		return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+		// Нужно для хорошей работы с маской телефона
+		if (phone !== null) {
+			this.phoneInputEl.value = phone;
+		}
+
+		this.emailInputEl.value = email;
+
+		this.formErrorsEl.innerHTML = errors;
+
+		this.submitBtnEl.disabled = !valid;
 	}
 }
